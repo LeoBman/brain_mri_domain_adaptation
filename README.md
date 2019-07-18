@@ -18,3 +18,5 @@ The above will be split into three teams:
 * Figure 4 - w/ w/o adversarial DA arm - Leo
 * Figure 4 - w/ w/o data augmentation - Tanner + ?
 
+The manuscript is living at https://www.overleaf.com/4137731126cfppvqqtqncy .
+
