@@ -28,9 +28,20 @@ age = np.load("/Dedicated/jmichaelson-sdata/neuroimaging/processed/numpy/2019-07
 age_filt = np.invert(np.isnan(age))
 age_filt1 = np.invert(age<0)
 age_filt = age_filt & age_filt1
+keep_ind = np.where(age_filt)[0]
 
-# load index splits for 5 fold CV
-ind_split = np.load('/Dedicated/jmichaelson-wdata/lbrueggeman/ukbb_sex/trained_models/2019-06-24-indices.npy')
+# load in cv folds and get subset within keep_ind (no NAs, no negative values)
+folds = np.load("/Dedicated/jmichaelson-sdata/neuroimaging/processed/numpy/2019-07-22-folds.npy")
+for i in range(5):
+    for j in range(3):
+        folds[i,j] = folds[i,j][np.isin(folds[i,j], keep_ind)]
+
+# set train and validation indices based on sys arg (batch_num above)
+folds_bool = np.isin(range(1,6,1), batch_num, invert=True)
+train_ind = folds[folds_bool,0]
+train_ind = np.hstack(train_ind)
+val_ind = folds[folds_bool,1]
+val_ind = np.hstack(val_ind)
 
 # model definition
 def con_net():
@@ -59,7 +70,7 @@ def con_net():
     ## define the model with input layer and output layer
     adam = keras.optimizers.Adam(lr=1e-4)
     model = Model(inputs=input_layer, outputs=output_layer) 
-    model.compile(loss='mean_squared_error', metrics=['mean_squared_error'], optimizer=adam)     
+    model.compile(loss='mean_squared_error', metrics=['mean_absolute_error'], optimizer=adam)     
     return model
 
 # model callbacks
@@ -67,19 +78,20 @@ es = keras.callbacks.EarlyStopping(monitor='val_loss',
                     min_delta=0,
                     patience=5,
                     verbose=0, mode='auto')
-cp = keras.callbacks.ModelCheckpoint(filepath='/Dedicated/jmichaelson-wdata/lbrueggeman/ukbb_sex/trained_models/2019-06-24-cnn-set{}'.format(batch_num),
+cp = keras.callbacks.ModelCheckpoint(filepath='/Dedicated/jmichaelson-wdata/lbrueggeman/brain_mri_domain_adaptation/models/domain_adaptation/cnn-set{}'.format(batch_num),
                                 verbose=1,
                                 save_best_only=True)
 
 # train model
 model = con_net()
-model.fit(x=x[0:3500][age_filt[0:3500]],
-          y=age[0:3500][age_filt[0:3500]],
-          validation_split=0.15,
+model.fit(x=x[train_ind],
+          y=age[train_ind],
+          validation_data=(x[val_ind], age[val_ind]),
           batch_size=32,
-          epochs=5,
+          epochs=100,
           verbose=1,
-         shuffle=True)
+          shuffle=True,
+          callbacks=[es,cp])
 
 pred = model.predict(x[3500:][age_filt[3500:]])
 

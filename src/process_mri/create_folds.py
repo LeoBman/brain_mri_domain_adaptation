@@ -1,8 +1,17 @@
 import numpy as np
 import pandas as pd
+import os
 
-sites = np.load("/sdata/neuroimaging/processed/numpy/2019-07-22-processed_filtered_site.npy", allow_pickle=True)
-study = np.load("/sdata/neuroimaging/processed/numpy/2019-07-22-processed_filtered_study.npy", allow_pickle=True)
+# set wdata and sdata paths w/ HPC in mind
+if os.path.isdir("/Dedicated"):
+    sdata = '/Dedicated/jmichaelson-sdata'
+    wdata = '/Dedicated/jmichaelson-wdata'
+else:
+    sdata = '/sdata'
+    wdata = '/wdata'
+
+sites = np.load(os.path.join(sdata, "neuroimaging/processed/numpy/2019-07-22-processed_filteredage_site.npy"), allow_pickle=True)
+study = np.load(os.path.join(sdata, "neuroimaging/processed/numpy/2019-07-22-processed_filteredage_study.npy"), allow_pickle=True)
 
 # array of sites-study
 comb = np.core.defchararray.add(np.array(study).astype(np.str), "-")
@@ -12,11 +21,11 @@ comb = np.core.defchararray.add(np.array(comb).astype(np.str), np.array(sites).a
 comb_tbl = pd.DataFrame(comb)[0].value_counts()
 
 # every fifth site goes into the same fold
-f1 = np.arange(100) % 5 == 0
-f2 = ((np.arange(100)-1) % 5) == 0
-f3 = ((np.arange(100)-2) % 5) == 0
-f4 = ((np.arange(100)-3) % 5) == 0
-f5 = ((np.arange(100)-4) % 5) == 0
+f1 = np.arange(93) % 5 == 0
+f2 = ((np.arange(93)-1) % 5) == 0
+f3 = ((np.arange(93)-2) % 5) == 0
+f4 = ((np.arange(93)-3) % 5) == 0
+f5 = ((np.arange(93)-4) % 5) == 0
 
 
 def split_site(site, sites, train_ratio, val_ratio):
@@ -77,7 +86,7 @@ fold5 = split_fold(train_ratio = 0.6,
     sites_array = comb)
 
 folds = np.array([fold1, fold2, fold3, fold4, fold5])
-np.save("/sdata/neuroimaging/processed/numpy/2019-07-22-folds.npy", folds)
+np.save(os.path.join(sdata,"neuroimaging/processed/numpy/2019-07-22-foldsage.npy"), folds)
 
 
 
