@@ -1,0 +1,11 @@
+#!/bin/bash
+#$ -t 1-4
+#$ -q JM,UI,CCOM -pe smp 56
+#$ -e /Dedicated/jmichaelson-sdata/neuroimaging/processed
+#$ -o /Dedicated/jmichaelson-sdata/neuroimaging/processed
+
+module load ANTs
+module load FSL
+cd /Dedicated/jmichaelson-wdata/lbrueggeman
+conda activate /Dedicated/jmichaelson-wdata/lbrueggeman/conda_envs/process_mri
+python /Dedicated/jmichaelson-wdata/lbrueggeman/process_mris/src/enhancement.py $SGE_TASK_ID

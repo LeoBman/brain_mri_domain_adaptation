@@ -5,8 +5,13 @@ import numpy as np
 import nibabel as nib
 from scipy.signal import medfilt
 from multiprocessing import Pool, cpu_count
+import sys
 
-if 'Dedicated' in os.getcwd():
+# get array number
+iter_num = int(sys.argv[1])
+
+# set wdata and sdata paths w/ HPC in mind
+if os.path.isdir("/Dedicated"):
     sdata = '/Dedicated/jmichaelson-sdata'
     wdata = '/Dedicated/jmichaelson-wdata'
 else:
@@ -66,21 +71,23 @@ def enhance(src_path, dst_path, kernel_size=3,
     except RuntimeError:
         print("\tFailed on: ", src_path)
 
-parent_dir = os.path.join(sdata, 'abide', 'abide_1and2')
-data_dir = os.path.join(parent_dir, "04_abide_biascorrect")
-data_src_dir = data_dir
-data_dst_dir = os.path.join(parent_dir, '05_abide_enhancement')
-data_labels = ["abide1", "abide2"]
-create_dir(data_dst_dir)
+
+parent_dir = os.path.join(sdata, 'neuroimaging', 'processed')
+
+src_dir_list = ['abide1','abide2','adhd200','openneuro'][iter_num-1]
+dst_dir_list = ['abide1','abide2','adhd200','openneuro'][iter_num-1]
 
 data_src_paths, data_dst_paths = [], []
-for label in data_labels:
-    src_label_dir = os.path.join(data_src_dir, label)
-    dst_label_dir = os.path.join(data_dst_dir, label)
-    create_dir(dst_label_dir)
-    for subject in os.listdir(src_label_dir):
-        data_src_paths.append(os.path.join(src_label_dir, subject))
-        data_dst_paths.append(os.path.join(dst_label_dir, subject))
+
+in_dir = src_dir_list
+out_dir = dst_dir_list
+
+src_label_dir = os.path.join(parent_dir, in_dir, "04_biascorrect")
+dst_label_dir = os.path.join(parent_dir, in_dir, "05_enhancement")
+create_dir(dst_label_dir)
+for subject in os.listdir(src_label_dir):
+    data_src_paths.append(os.path.join(src_label_dir, subject))
+    data_dst_paths.append(os.path.join(dst_label_dir, subject))
 
 kernel_size = 3
 percentils = [0.5, 99.5]
@@ -101,45 +108,42 @@ paras = zip(data_src_paths, data_dst_paths,
 pool = Pool(processes=cpu_count())
 pool.map(unwarp_enhance, paras)
 
-
-
-
 # produce example plots of this process
-import matplotlib.pyplot as plt
-from scipy.integrate import cumtrapz
-from skimage import exposure
+#import matplotlib.pyplot as plt
+#from scipy.integrate import cumtrapz
+#from skimage import exposure
 
 
-img, affine = load_nii(data_src_paths[0])
-img_copy = img.flatten()
-img_copy.sort()
-img_copy_y = np.arange(len(img_copy)) / len(img_copy)
+#img, affine = load_nii(data_src_paths[0])
+#img_copy = img.flatten()
+#img_copy.sort()
+#img_copy_y = np.arange(len(img_copy)) / len(img_copy)
 
-img_rescale = rescale_intensity(img, bins_num=bins_num)
-img_rescale_sort = img_rescale.flatten()
-img_rescale_sort.sort()
-img_rescale_sort_y = np.arange(len(img_rescale_sort)) / len(img_rescale_sort)
+#img_rescale = rescale_intensity(img, bins_num=bins_num)
+#img_rescale_sort = img_rescale.flatten()
+#img_rescale_sort.sort()
+#img_rescale_sort_y = np.arange(len(img_rescale_sort)) / len(img_rescale_sort)
 
-img_rescale_eh = equalize_hist(img_rescale)
-img_rescale_eh_sort = img_rescale_eh.flatten()
-img_rescale_eh_sort.sort()
-img_rescale_eh_sort_y = np.arange(len(img_rescale_eh_sort)) / len(img_rescale_eh_sort)
+#img_rescale_eh = equalize_hist(img_rescale)
+#img_rescale_eh_sort = img_rescale_eh.flatten()
+#img_rescale_eh_sort.sort()
+#img_rescale_eh_sort_y = np.arange(len(img_rescale_eh_sort)) / len(img_rescale_eh_sort)
 
-fig, axes = plt.subplots(nrows=2,ncols=3)
+#fig, axes = plt.subplots(nrows=2,ncols=3)
 
-axes[0,0].imshow(img[75,:,:])
-axes4a = axes[1,0].twinx()
-axes[1,0].hist(img_copy, normed=True, histtype='stepfilled', alpha=0.2)
-axes4a.plot(img_copy, img_copy_y)
+#axes[0,0].imshow(img[75,:,:])
+#axes4a = axes[1,0].twinx()
+#axes[1,0].hist(img_copy, normed=True, histtype='stepfilled', alpha=0.2)
+#axes4a.plot(img_copy, img_copy_y)
 
-axes[0,1].imshow(img_rescale[75,:,:])
-axes5a = axes[1,1].twinx()
-axes[1,1].hist(img_rescale_sort, normed=True, histtype='stepfilled', alpha=0.2)
-axes5a.plot(img_rescale_sort, img_rescale_sort_y)
+#axes[0,1].imshow(img_rescale[75,:,:])
+#axes5a = axes[1,1].twinx()
+#axes[1,1].hist(img_rescale_sort, normed=True, histtype='stepfilled', alpha=0.2)
+#axes5a.plot(img_rescale_sort, img_rescale_sort_y)
 
-axes[0,2].imshow(img_rescale_eh[75,:,:])
-axes6a = axes[1,2].twinx()
-axes[1,2].hist(img_rescale_eh_sort, normed=True, histtype='stepfilled', alpha=0.2)
-axes6a.plot(img_rescale_eh_sort, img_rescale_eh_sort_y)
+#axes[0,2].imshow(img_rescale_eh[75,:,:])
+#axes6a = axes[1,2].twinx()
+#axes[1,2].hist(img_rescale_eh_sort, normed=True, histtype='stepfilled', alpha=0.2)
+#axes6a.plot(img_rescale_eh_sort, img_rescale_eh_sort_y)
 
-plt.savefig('/Dedicated/jmichaelson-wdata/lbrueggeman/process_mris/bias_cor.png')
+#plt.savefig('/Dedicated/jmichaelson-wdata/lbrueggeman/process_mris/bias_cor.png')

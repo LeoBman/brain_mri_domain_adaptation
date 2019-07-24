@@ -19,24 +19,21 @@ from keras.layers import Dense, Activation
 from keras.constraints import max_norm
 import h5py
 
-# load data for a normal fit procedure
-x = np.load("/Dedicated/jmichaelson-sdata/neuroimaging/processed/numpy/2019-07-22-processed_filteredage_img.npy")
+# import data
+x = np.load('/Dedicated/jmichaelson-sdata/neuroimaging/processed/numpy/2019-07-22-processed_filtered_
+img.npy')
 x = np.expand_dims(x, axis=4)
-age = np.load("/Dedicated/jmichaelson-sdata/neuroimaging/processed/numpy/2019-07-22-processed_filteredage_age_recode.npy")
-
-# filter age
-age_filt = np.invert(np.isnan(age))
-age_filt1 = np.invert(age<0)
-age_filt = age_filt & age_filt1
+sex = np.load('/Dedicated/jmichaelson-sdata/neuroimaging/processed/numpy/2019-07-22-processed_filtered_sex.npy')
 
 # load index splits for 5 fold CV
-ind_split = np.load('/Dedicated/jmichaelson-wdata/lbrueggeman/ukbb_sex/trained_models/2019-06-24-indices.npy')
+cv = np.load('/Dedicated/jmichaelson-sdata/neuroimaging/processed/numpy/2019-07-22-folds.npy')
+
 
 # model definition
 def con_net():
 ## input layer
     keras.backend.clear_session()
-    input_layer = Input((91,109,91,1))
+    input_layer = Input((128,128,128,1))
 ## conv 1
     conv1 = Conv3D(filters=8, kernel_size=(3, 3, 3), activation='relu', data_format='channels_last')(input_layer)
     pool1 = MaxPool3D(pool_size=(1,2,2), strides=(1,2,2))(conv1)
@@ -55,11 +52,11 @@ def con_net():
     conv6 = Conv3D(filters=256, kernel_size=(2, 2, 2), activation='relu')(conv5)
     pool4 = MaxPool3D(pool_size=(1,2,2), strides=(1,2,2))(conv6)
     flatten1 = Flatten()(pool4)
-    output_layer = Dense(1, activation='linear', bias_initializer=keras.initializers.Constant(value=20))(flatten1)
+    output_layer = Dense(1, activation='sigmoid', bias_initializer=keras.initializers.Constant(value=1))(flatten1)
     ## define the model with input layer and output layer
-    adam = keras.optimizers.Adam(lr=1e-4)
+    adam = keras.optimizers.Adam(lr=1e-5)
     model = Model(inputs=input_layer, outputs=output_layer) 
-    model.compile(loss='mean_squared_error', metrics=['mean_squared_error'], optimizer=adam)     
+    model.compile(loss='binary_crossentropy', metrics=['accuracy'], optimizer=adam)     
     return model
 
 # model callbacks
@@ -73,19 +70,20 @@ cp = keras.callbacks.ModelCheckpoint(filepath='/Dedicated/jmichaelson-wdata/lbru
 
 # train model
 model = con_net()
-model.fit(x=x[0:3500][age_filt[0:3500]],
-          y=age[0:3500][age_filt[0:3500]],
+model.fit(x=x[np.isin(range(21390), ind_split[batch_num], invert=True)],
+          y=sex[np.isin(range(21390), ind_split[batch_num], invert=True)],
           validation_split=0.15,
           batch_size=32,
-          epochs=5,
+          epochs=50,
           verbose=1,
-         shuffle=True)
+         shuffle=False,
+         callbacks=[es, cp])
 
-pred = model.predict(x[3500:][age_filt[3500:]])
 
-import scipy.stats.pearsonr as pearsonr
-import scipy.stats
-scipy.stats.pearsonr(pred[:,0], age[3500:][age_filt[3500:]])
+
+
+
+
 
 
 

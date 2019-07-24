@@ -1,0 +1,8 @@
+#!/bin/bash
+#$ -q JM -pe smp 56
+#$ -e /Dedicated/jmichaelson-sdata/neuroimaging/processed/numpy
+#$ -o /Dedicated/jmichaelson-sdata/neuroimaging/processed/numpy
+
+cd /Dedicated/jmichaelson-wdata/lbrueggeman
+conda activate /Dedicated/jmichaelson-wdata/lbrueggeman/conda_envs/process_mri
+python /Dedicated/jmichaelson-wdata/lbrueggeman/process_mris/src/create_numpy.py
