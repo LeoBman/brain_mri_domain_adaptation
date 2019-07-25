@@ -1,0 +1,9 @@
+#!/bin/bash
+#$ -t 1-5
+#$ -q JM-GPU,UI-GPU,CCOM-GPU -pe smp 56
+#$ -e /Dedicated/jmichaelson-wdata/lbrueggeman/brain_mri_domain_adaptation
+#$ -o /Dedicated/jmichaelson-wdata/lbrueggeman/brain_mri_domain_adaptation
+
+cd /Dedicated/jmichaelson-wdata/lbrueggeman
+conda activate /Dedicated/jmichaelson-wdata/lbrueggeman/neural_chal_offline/neural_chal
+python /Dedicated/jmichaelson-wdata/lbrueggeman/brain_mri_domain_adaptation/src/cnn_DA.py $SGE_TASK_ID
