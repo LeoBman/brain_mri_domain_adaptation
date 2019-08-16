@@ -25,6 +25,7 @@ from keras.activations import relu
 from keras.layers import Dense, Activation
 from keras.constraints import max_norm
 import h5py
+from keras.preprocessing.image import ImageDataGenerator
 
 # load data for a normal fit procedure
 x = np.load("/Dedicated/jmichaelson-sdata/neuroimaging/processed/numpy/2019-07-22-processed_filteredage_img.npy")
@@ -49,6 +50,68 @@ train_ind = folds[folds_bool,0]
 train_ind = np.hstack(train_ind)
 val_ind = folds[folds_bool,1]
 val_ind = np.hstack(val_ind)
+
+
+## image augmentation
+## adapted from https://mlnotebook.github.io/post/dataaug/
+def translateit(image, isseg=False):
+    if random.randint(0,1) == 0:
+        offset = (random.randint(-20,20), random.randint(-20,20), random.randint(-20,20), 0)
+        order = 0 if isseg == True else 5
+        return scipy.ndimage.interpolation.shift(image, offset, order=order, mode='nearest')
+    else:
+        return image
+
+def scaleit(image, isseg=False):
+    factor = random.randint(12,15) / random.randint(12,15)
+    order = 0 if isseg == True else 3
+    height, width, depth = image.shape[0:3]
+    zheight             = int(np.round(factor * height))
+    zwidth              = int(np.round(factor * width))
+    zdepth              = depth
+    if factor < 1.0:
+        image = image[:,:,:,0]
+        newimg  = np.zeros_like(image)
+        row     = (height - zheight) // 2
+        col     = (width - zwidth) // 2
+        layer   = (depth - zdepth) // 2
+        newimg[row:row+zheight, col:col+zwidth, layer:layer+zdepth] =  scipy.ndimage.interpolation.zoom(image, (float(factor), float(factor), 1.0), order=order, mode='nearest')[0:zheight, 0:zwidth, 0:zdepth]
+        return newimg[..., np.newaxis]
+    elif factor > 1.0:
+        image = image[:,:,:,0]
+        row     = (zheight - height) // 2
+        col     = (zwidth - width) // 2
+        layer   = (zdepth - depth) // 2
+        newimg =  scipy.ndimage.interpolation.zoom(image[row:row+zheight, col:col+zwidth, layer:layer+zdepth], (float(factor), float(factor), 1.0), order=order, mode='nearest')  
+        extrah = (newimg.shape[0] - height) // 2
+        extraw = (newimg.shape[1] - width) // 2
+        extrad = (newimg.shape[2] - depth) // 2
+        newimg = newimg[extrah:extrah+height, extraw:extraw+width, extrad:extrad+depth]
+        return newimg[..., np.newaxis]
+    else:
+        return image
+
+def rotateit(image, isseg=False):
+    order = 0 if isseg == True else 5
+    if random.randint(0,1) == 0:
+        theta = random.randint(-15,15)  
+        return scipy.ndimage.rotate(image, float(theta), reshape=False, order=order, mode='nearest')
+    else:
+        return image
+
+def flipit(image):
+    if random.randint(0,2) == 0:
+        image = np.fliplr(image)
+    if random.randint(0,2) == 0:
+        image = np.flipud(image)
+    return image
+
+# img = x[0]
+# img_trans = flipit(img)
+# plt.imshow(img[img.shape[0] // 2,:,:,0])
+# plt.savefig('/Dedicated/jmichaelson-wdata/tkoomar/img.png')
+# plt.imshow(img_trans[img_trans.shape[0] // 2,:,:,0])
+# plt.savefig('/Dedicated/jmichaelson-wdata/tkoomar/img_trans.png')
 
 # model definition
 def con_net():
@@ -80,39 +143,53 @@ def con_net():
     model.compile(loss='mean_squared_error', metrics=['mean_absolute_error'], optimizer=adam)     
     return model
 
-## image augmentation
-def translateit(image, isseg=False):
-    if random.randint(0,1) == 0:
-        offset = (random.randint(-10,10), random.randint(-10,10), random.randint(-10,10), 0)
-        order = 0 if isseg == True else 5
-        return scipy.ndimage.interpolation.shift(image, offset, order=order, mode='nearest')
-    else:
-        return image
+#image_generator function notice it only returns batch_x
+def image_generator(x, y, indicies, scale = True, translate = True, flip = True, rotate = True, batch_size = 32):
+    batch = np.random.choice(indicies, batch_size)
+    while True:
+        augImgs = []
+        labels =  y[batch]
+        for i in range(len(batch)):
+            j = batch[i]
+            augImg = x[j]
+            if translate : 
+                augImg = translateit(augImg)
+            if scale :
+                augImg = scaleit(augImg)
+            if flip : 
+                augImg = flipit(augImg)
+            if rotate :
+                augImg = rotateit(augImg)
+            augImgs.append(augImg)
+        # Return a tuple of (input,output) to feed the network
+        batch_x = np.array(augImgs)
+        batch_y = np.array(labels)
+        yield( batch_x, batch_y )
 
 
-img_trans = scipy.ndimage.interpolation.shift(img, (2,10,0,0) )
-plt.imshow(img[img.shape[0] // 2,:,:,0])
-plt.savefig('/Dedicated/jmichaelson-wdata/tkoomar/img.png')
-plt.imshow(img_trans[img_trans.shape[0] // 2,:,:,0])
-plt.savefig('/Dedicated/jmichaelson-wdata/tkoomar/img_trans.png')
-
+# applying transformation to image
+#train_gen = ImageDataGenerator()
+#val_gen = ImageDataGenerator()
+#training_set = train_gen.flow(image_generator(x[train_ind]), age[train_ind], batch_size=4)
+#validation_set= test_gen.flow(image_generator(x[val_ind]), x[val_ind], batch_size=4)
 
 # model callbacks
 es = keras.callbacks.EarlyStopping(monitor='val_loss',
                     min_delta=0,
-                    patience=5,
+                    patience=10,
                     verbose=0, mode='auto')
-cp = keras.callbacks.ModelCheckpoint(filepath='/Dedicated/jmichaelson-wdata/lbrueggeman/brain_mri_domain_adaptation/models/domain_adaptation/cnn-set{}'.format(batch_num),
-                                verbose=1,
-                                save_best_only=True)
+
+cp = keras.callbacks.ModelCheckpoint(filepath='models/augment/cnn-set{}'.format(batch_num), 
+    verbose=1,
+    save_best_only=True)
 
 # train model
 model = con_net()
-model.fit(x=x[train_ind],
-          y=age[train_ind],
-          validation_data=(x[val_ind], age[val_ind]),
-          batch_size=32,
-          epochs=100,
-          verbose=1,
-          shuffle=True,
-          callbacks=[es,cp])
+model.fit_generator(image_generator(x, age, train_ind, batch_size = 32),
+        steps_per_epoch=100, 
+        validation_data = image_generator(x, age, val_ind, scale = False, translate = False, rotate = False, flip = False, batch_size = 32), 
+        validation_steps=20, 
+        epochs=100, 
+        verbose = 1, 
+        callbacks=[es,cp])
+
