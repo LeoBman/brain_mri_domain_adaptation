@@ -63,7 +63,9 @@ def translateit(image, isseg=False):
         return image
 
 def scaleit(image, isseg=False):
-    factor = random.randint(12,15) / random.randint(12,15)
+    factor = random.randint(72,76) / random.randint(72,76)
+    if random.randint(0,1) == 1:
+      factor = 1
     order = 0 if isseg == True else 3
     height, width, depth = image.shape[0:3]
     zheight             = int(np.round(factor * height))
@@ -179,17 +181,18 @@ es = keras.callbacks.EarlyStopping(monitor='val_loss',
                     patience=10,
                     verbose=0, mode='auto')
 
-cp = keras.callbacks.ModelCheckpoint(filepath='models/augment/cnn-set{}'.format(batch_num), 
+cp = keras.callbacks.ModelCheckpoint(filepath='../models/augment/cnn-set{}'.format(batch_num), 
     verbose=1,
     save_best_only=True)
 
 # train model
 model = con_net()
-model.fit_generator(image_generator(x, age, train_ind, batch_size = 32),
-        steps_per_epoch=100, 
-        validation_data = image_generator(x, age, val_ind, scale = False, translate = False, rotate = False, flip = False, batch_size = 32), 
-        validation_steps=20, 
+batch_size = 32
+
+model.fit_generator(image_generator(x, age, train_ind, scale = False, batch_size = batch_size),
+        steps_per_epoch= 10, 
+        validation_data = image_generator(x, age, val_ind, scale = False, translate = False, rotate = False, flip = False, batch_size = batch_size), 
+        validation_steps= val_ind.size // batch_size, 
         epochs=100, 
         verbose = 1, 
         callbacks=[es,cp])
-
